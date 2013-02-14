@@ -106,13 +106,13 @@ static void parse_opts(int argc, char **argv)
             break;
         default:
             print_usage(argc, argv);
-            exit(2);
+            exit(0);
         }
     }
 
     if (optind <= 1 || (argc - optind > 0)) {
         print_usage(argc, argv);
-        exit(2);
+        exit(0);
     }
 }
 
@@ -156,7 +156,11 @@ void recv_pkt(idevice_connection_t connection)
 #ifdef WITH_DEBUG
     printf("d='%s'\n", buf);
 #endif
-    if (bytes > 0 && buf[0] == '$') {
+	//its possible that the an ack and a response is received at the same time
+	//so the answer is: +$OK...
+	//this has to be catched here
+    if ((bytes > 0 && buf[0]=='$') || (bytes > 1 && buf[0] == '+' && buf[1] == '$'))
+    {
         send_str("+", connection);
         if (bytes > 1 && buf[1] == 'O') {
             char* c = buf+2;
@@ -278,8 +282,10 @@ int main(int argc, char **argv)
     };
 
     cmds[0] = malloc(2000);
+    //this is neccessary because malloc allocated memory is never cleared
+    memset(cmds[0],'\0',2000);
     char* p = cmds[0];
-    sprintf(p, "A%d,0,", strlen(apppath)*2/* +4 */);
+    sprintf(p, "A%d,0,", (int)(strlen(apppath)*2)/* +4 */);
     p += strlen(p);
     char* q = apppath;
     while (*q) {
